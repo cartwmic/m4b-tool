@@ -1,7 +1,8 @@
-ARG FFMPEG_IMAGE="mwader/static-ffmpeg:4.4.0"
+FROM node:alpine3.15 AS ffmpeg_binary
+WORKDIR "/home"
+RUN npm install ffmpeg-static; \
+    cp /home/node_modules/ffmpeg-static/ffmpeg /ffmpeg
 ARG FFMPEG_PATH="/ffmpeg"
-
-FROM ${FFMPEG_IMAGE} as ffmpeg_binary
 
 ##############################
 #
@@ -27,27 +28,27 @@ RUN echo "---- INSTALL BUILD DEPENDENCIES ----" \
     git \
     tar \
     wget \
-&& echo "---- COMPILE SANDREAS MP4V2 (for sort-title, sort-album and sort-author) ----" \
-  && cd /tmp/ \
-  && wget "${MP4V2_URL}" -O mp4v2.zip \
-  && unzip mp4v2.zip \
-  && cd mp4v2* \
-  && autoreconf -fiv \
-  && ./configure && \
-  make -j$(nproc) && \
-  make install && make distclean \
-&& echo "---- PREPARE FDKAAC-DEPENDENCIES ----" \
-  && cd /tmp/ \
-  && wget -O fdk-aac.tar.gz "$FDK_AAC_URL" \
-  && tar xfz fdk-aac.tar.gz \
-  && cd fdk-aac-* && ./autogen.sh && ./configure --enable-static --disable-shared && make -j$(nproc) install \
-&& echo "---- COMPILE FDKAAC ENCODER (executable binary for usage of --audio-profile) ----" \
+    && echo "---- COMPILE SANDREAS MP4V2 (for sort-title, sort-album and sort-author) ----" \
+    && cd /tmp/ \
+    && wget "${MP4V2_URL}" -O mp4v2.zip \
+    && unzip mp4v2.zip \
+    && cd mp4v2* \
+    && autoreconf -fiv \
+    && ./configure && \
+    make -j$(nproc) && \
+    make install && make distclean \
+    && echo "---- PREPARE FDKAAC-DEPENDENCIES ----" \
+    && cd /tmp/ \
+    && wget -O fdk-aac.tar.gz "$FDK_AAC_URL" \
+    && tar xfz fdk-aac.tar.gz \
+    && cd fdk-aac-* && ./autogen.sh && ./configure --enable-static --disable-shared && make -j$(nproc) install \
+    && echo "---- COMPILE FDKAAC ENCODER (executable binary for usage of --audio-profile) ----" \
     && cd /tmp/ \
     && wget https://github.com/nu774/fdkaac/archive/1.0.0.tar.gz \
     && tar xzf 1.0.0.tar.gz \
     && cd fdkaac-1.0.0 \
     && autoreconf -i && ./configure --enable-static --disable-shared && make -j$(nproc) && make install && rm -rf /tmp/* \
-&& echo "---- REMOVE BUILD DEPENDENCIES (to keep image small) ----" \
+    && echo "---- REMOVE BUILD DEPENDENCIES (to keep image small) ----" \
     && apk del --purge build-dependencies && rm -rf /tmp/*
 
 ##############################
@@ -61,21 +62,21 @@ ENV M4BTOOL_TMP_DIR /tmp/m4b-tool/
 
 
 RUN echo "---- INSTALL RUNTIME PACKAGES ----" && \
-  apk add --no-cache --update --upgrade \
-  # mp4v2: required libraries
-  libstdc++ \
-  # m4b-tool: php cli, required extensions and php settings
-  php8-cli \
-  php8-dom \
-  php8-json \
-  php8-xml \
-  php8-mbstring \
-  php8-phar \
-  php8-tokenizer \
-  php8-xmlwriter \
-  php8-openssl \
-  && echo "date.timezone = UTC" >> /etc/php8/php.ini \
-  && ln -s /usr/bin/php8 /bin/php
+    apk add --no-cache --update --upgrade \
+    # mp4v2: required libraries
+    libstdc++ \
+    # m4b-tool: php cli, required extensions and php settings
+    php8-cli \
+    php8-dom \
+    php8-json \
+    php8-xml \
+    php8-mbstring \
+    php8-phar \
+    php8-tokenizer \
+    php8-xmlwriter \
+    php8-openssl \
+    && echo "date.timezone = UTC" >> /etc/php8/php.ini \
+    && ln -s /usr/bin/php8 /bin/php
 
 
 
@@ -93,11 +94,11 @@ ARG M4B_TOOL_DOWNLOAD_LINK="https://github.com/sandreas/m4b-tool/releases/latest
 ADD ./Dockerfile ./dist/m4b-tool.phar* /tmp/
 RUN echo "---- INSTALL M4B-TOOL ----" \
     && if [ ! -f /tmp/m4b-tool.phar ]; then \
-            echo "!!! DOWNLOADING ${M4B_TOOL_DOWNLOAD_LINK} !!!" && wget "${M4B_TOOL_DOWNLOAD_LINK}" -O /tmp/m4b-tool.tar.gz && \
-            if [ ! -f /tmp/m4b-tool.phar ]; then \
-                tar xzf /tmp/m4b-tool.tar.gz -C /tmp/ && rm /tmp/m4b-tool.tar.gz ;\
-            fi \
-       fi \
+    echo "!!! DOWNLOADING ${M4B_TOOL_DOWNLOAD_LINK} !!!" && wget "${M4B_TOOL_DOWNLOAD_LINK}" -O /tmp/m4b-tool.tar.gz && \
+    if [ ! -f /tmp/m4b-tool.phar ]; then \
+    tar xzf /tmp/m4b-tool.tar.gz -C /tmp/ && rm /tmp/m4b-tool.tar.gz ;\
+    fi \
+    fi \
     && mv /tmp/m4b-tool.phar /usr/local/bin/m4b-tool \
     && M4B_TOOL_PRE_RELEASE_LINK=$(wget -q -O - https://github.com/sandreas/m4b-tool/releases/tag/latest | grep -o 'M4B_TOOL_DOWNLOAD_LINK=[^ ]*' | head -1 | cut -d '=' -f 2) \
     && echo "!!! DOWNLOADING PRE_RELEASE ${M4B_TOOL_DOWNLOAD_LINK} !!!" && wget "${M4B_TOOL_PRE_RELEASE_LINK}" -O /tmp/m4b-tool.tar.gz \
@@ -108,4 +109,3 @@ RUN echo "---- INSTALL M4B-TOOL ----" \
 WORKDIR ${WORKDIR}
 CMD ["list"]
 ENTRYPOINT ["m4b-tool"]
-
